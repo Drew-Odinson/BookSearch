@@ -1,24 +1,14 @@
 import { useState } from 'react';
 import { Form, Button, Alert } from 'react-bootstrap';
-import { useMutation, gql } from '@apollo/client';
 import Auth from '../utils/auth';
-
-// Define the GraphQL login mutation
-const LOGIN_USER = gql`
-  mutation login($email: String!, $password: String!) {
-    login(email: $email, password: $password) {
-      token
-    }
-  }
-`;
+import { gql, useMutation } from '@apollo/client';
+import { LOGIN_USER } from '../utils/mutations';
 
 const LoginForm = () => {
+  const [login] = useMutation(LOGIN_USER);
   const [userFormData, setUserFormData] = useState({ email: '', password: '' });
   const [validated] = useState(false);
   const [showAlert, setShowAlert] = useState(false);
-
-  // Initialize the useMutation hook
-  const [login, { error }] = useMutation(LOGIN_USER);
 
   const handleInputChange = (event) => {
     const { name, value } = event.target;
@@ -35,13 +25,17 @@ const LoginForm = () => {
     }
 
     try {
-      const { data } = await login({
-        variables: { ...userFormData },
-      });
+      const response = await loginUser(userFormData);
 
-      Auth.login(data.login.token);
-    } catch (e) {
-      console.error('Login failed', e);
+      if (!response.ok) {
+        throw new Error('something went wrong!');
+      }
+
+      const { token, user } = await response.json();
+      console.log(user);
+      Auth.login(token);
+    } catch (err) {
+      console.error(err);
       setShowAlert(true);
     }
 
@@ -54,8 +48,10 @@ const LoginForm = () => {
 
   return (
     <>
-       <Form noValidate validated={validated} onSubmit={handleFormSubmit}>
-        {error && <Alert variant='danger'>Login failed</Alert>}
+      <Form noValidate validated={validated} onSubmit={handleFormSubmit}>
+        <Alert dismissible onClose={() => setShowAlert(false)} show={showAlert} variant='danger'>
+          Something went wrong with your login credentials!
+        </Alert>
         <Form.Group className='mb-3'>
           <Form.Label htmlFor='email'>Email</Form.Label>
           <Form.Control
